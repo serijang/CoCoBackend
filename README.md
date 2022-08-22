@@ -70,14 +70,14 @@ https://github.com/serijang/CoCoBackend/blob/23dbd833cc967b3ae52e753ef1f0eb91f23
 
 ## 7. 트러블 슈팅
 
-### 7-1 
+###  7-1 북마크 객체
 
 #### 문제 원인<br>
+- 모든 유저들은 본인이 북마크한 게시글 목록들을 각각 가질 수 있어야 하는데, 한 개의 게시글을 한 명의 유저만 북마크에 저장할 수 있는 오류가 발생했습니다.
 
+> 해결 방법<br>
 
-> 해결 방법
-
-
+북마크를 저장할 때 `new` 연산자를 사용해서 객체를 새로 생성해줌으로써 문제를 해결했습니다.
 
 <details>
 <summary> 기존 방식 </summary>
@@ -85,6 +85,46 @@ https://github.com/serijang/CoCoBackend/blob/23dbd833cc967b3ae52e753ef1f0eb91f23
 | BookmarkService.java
 
 ```java
+    // 북마크에 저장하기
+    @Transactional
+    public ResponseEntity<BookmarkSaveResponseDto> saveBookmark(Long postId, MemberDetails memberDetails) {
+        Optional<Member> memberOptional = memberRepository.findById(memberDetails.getMember().getId());
+        Member member = memberOptional.get();
+
+        Optional<Post> postOptional  = postRepository.findById(postId);
+        if(postOptional.isEmpty()) {
+            log.error("nickname={}, postId={}, error={}", member.getNickname(), postId, "해당 게시글을 찾을 수 없음");
+            return new ResponseEntity<>(
+                    BookmarkSaveResponseDto.builder().status(StatusMessage.BAD_REQUEST).build(),
+                    HttpStatus.valueOf(StatusCode.BAD_REQUEST));
+        }
+        Post post = postOptional.get();
+
+        List<Bookmark> bookmarks = bookmarkRepository.findAllByPostId(postId);
+        for(Bookmark b : bookmarks) {
+
+            if (b.getMember().getId() == memberDetails.getMember().getId()) {
+                log.error("nickname={}, postId={}, error={}", member.getNickname(), postId, "이미 북마크에 저장한 게시글");
+                return new ResponseEntity<>(
+                        BookmarkSaveResponseDto.builder().status(StatusMessage.DUPLICATED_BOOKMARK).build(),
+                        HttpStatus.valueOf(StatusCode.BAD_REQUEST)
+                );
+            }
+        }
+
+        Bookmark bookmark = Bookmark.builder()  // 변경 한 부분
+                .id(post.getId())
+                .build();
+
+        member.addBookmark(bookmark);
+        post.addBookmark(bookmark);
+        bookmarkRepository.save(bookmark);
+
+        return new ResponseEntity<>(
+                BookmarkSaveResponseDto.builder().status(StatusMessage.SUCCESS).build(),
+                HttpStatus.valueOf(StatusCode.SUCCESS)
+        );
+    }
 
 ```
 
@@ -97,12 +137,49 @@ https://github.com/serijang/CoCoBackend/blob/23dbd833cc967b3ae52e753ef1f0eb91f23
 | BookmarkService.java
 
 ```java
+    // 북마크에 저장하기
+    @Transactional
+    public ResponseEntity<BookmarkSaveResponseDto> saveBookmark(Long postId, MemberDetails memberDetails) {
+        Optional<Member> memberOptional = memberRepository.findById(memberDetails.getMember().getId());
+        Member member = memberOptional.get();
 
+        Optional<Post> postOptional  = postRepository.findById(postId);
+        if(postOptional.isEmpty()) {
+            log.error("nickname={}, postId={}, error={}", member.getNickname(), postId, "해당 게시글을 찾을 수 없음");
+            return new ResponseEntity<>(
+                    BookmarkSaveResponseDto.builder().status(StatusMessage.BAD_REQUEST).build(),
+                    HttpStatus.valueOf(StatusCode.BAD_REQUEST));
+        }
+        Post post = postOptional.get();
+
+        List<Bookmark> bookmarks = bookmarkRepository.findAllByPostId(postId);
+        for(Bookmark b : bookmarks) {
+
+            if (b.getMember().getId() == memberDetails.getMember().getId()) {
+                log.error("nickname={}, postId={}, error={}", member.getNickname(), postId, "이미 북마크에 저장한 게시글");
+                return new ResponseEntity<>(
+                        BookmarkSaveResponseDto.builder().status(StatusMessage.DUPLICATED_BOOKMARK).build(),
+                        HttpStatus.valueOf(StatusCode.BAD_REQUEST)
+                );
+            }
+        }
+
+        Bookmark bookmark = new Bookmark();  // 변경된 부분
+        member.addBookmark(bookmark);
+        post.addBookmark(bookmark);
+        bookmarkRepository.save(bookmark);
+
+        return new ResponseEntity<>(
+                BookmarkSaveResponseDto.builder().status(StatusMessage.SUCCESS).build(),
+                HttpStatus.valueOf(StatusCode.SUCCESS)
+        );
+    }
 
 ```
 
 <br>
 </details>
+<br><br>
 
 ### 7-2 @MappedSuperClass<br>
 
@@ -178,7 +255,6 @@ public abstract class Timestamped {
 }
 ```
 </details>
-<br><br>
 
 <br>
 <br>
