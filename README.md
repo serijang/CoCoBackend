@@ -30,13 +30,15 @@
 <img width="948" alt="아키텍처" src="https://user-images.githubusercontent.com/103922738/183818487-3a97b9b8-86ba-4879-99c4-4f57105e918f.png">
 
 
-## 5. 구현한 기능
-| 카테고리 |                기능                 | 기능 내용                                                       |
-| :------: |:---------------------------------:|:------------------------------------------------------------|
-| 프로필 | D | 회원 탈퇴 |
-| 게시글 | R | 글 작성 유저 프로필 보기 </br> 글 작성 유저에게 쪽지 보내기 </br> 게시글 조회수 |
-| 쪽지 | CRD | 쪽지 보내기 </br> 쪽지 답장 보내기 </br>보낸&받은 쪽지리스트 </br> 쪽지 상세보기 </br> 쪽지 삭제 |
-| 북마크 | CRD | 게시글 북마크에 저장 </br> 북마크 리스트 획득 </br> 북마크 삭제|
+## 5. 개발 담당 기능 소개
+- JPA 양방향관계 매핑을 사용한 쪽지 CRD 
+    - 쪽지 보내기, 쪽지 답장 보내기, 보낸&받은 쪽지리스트, 쪽지 상세보기, 쪽지 삭제
+- JPA 양방향관계 매핑을 사용한 북마크 CRD 
+    - 게시글 북마크에 저장, 북마크 리스트 획득, 북마크 삭제
+- Spring Data JPA 활용한 게시글 기능
+    - 글 작성 유저에게 쪽지 보내기 & 프로필 보기, 게시글 조회수, 모집현황 필터
+- JPA 양방향관계 매핑을 사용한 회원 탈퇴 기능
+
 <br>
 <br>
 
@@ -63,7 +65,53 @@ https://github.com/serijang/CoCoBackend/blob/23dbd833cc967b3ae52e753ef1f0eb91f23
 - 처음으로 온전히 혼자서 만들어 본 북마크 기능입니다. 간단할 것 같았지만 구글 검색시에도 정보를 잘 찾을 수 없었고 Member & Post 두 개의 Entity와 연관 관계가 맺어져 있어서 어려웠기 때문에 기억에 남습니다. 
 - 이미 저장한 북마크는 저장이 불가하도록 [예외처리](https://velog.io/@serringg/%EB%B6%81%EB%A7%88%ED%81%AC)를 하고, 한 개의 게시글에는 한 명의 유저만 저장되는 오류가 있어서 문제를 해결하면서 공부가 많이 됐습니다.
 - 프로젝트 기간이 끝난 후에도 프로젝트 완성도를 높이기 위해 북마크 추가 기능을 구현하고 리팩토링하면서 완성했던 경험이 있어서 더 기억에 남습니다.
+    - 추가적으로 구현한 기능이기 때문에 최대한 기존 코드의 변경없이 효율적으로 작성하기위해 노력했습니다.
+    - 로그인한 유저의 북마크 정보를 획득하는 기존 메소드를 홈 화면의 게시글 리스트를 불러오는 ajax의 마지막에 사용하여, 홈 화면 게시글 리스트에서 유저가 북마크한 `postId`가 게시글의 `postId`와 같다면 북마크 아이콘 색이 변경되도록 [구현](https://github.com/BreedingMe/CoCoFrontend/commit/1620f5de9afd5b2d1dbdde93c80279b544bca84e)하였습니다.
+<br>
+</details>
 
+<details>
+<summary> 게시글 작성 유저의 정보 불러오기 </summary>
+https://github.com/serijang/CoCoBackend/blob/6cf6235b0d71901a02b25ce9bcd3c50704fb95d3/src/main/java/com/igocst/coco/service/PostService.java#L71-L130
+
+### 기억에 남는 이유
+- 글 작성자에게 쪽지를 보낼 때와 프로필을 볼 때 필요한 정보들을 불러올 때 따로 메소드를 만들지 않고, 기존에 구현돼있던 게시글 상세페이지를 불러오는 DTO와 Service에서 [최소한의 코드만을 추가](https://github.com/BreedingMe/CoCoBackend/commit/45ceb4ef79cb4772878dcd9f15024c6c6a8ec280)하여 구현할 수 있도록 목표했습니다.
+
+- 프론트에서도 불필요한 ajax를 제거하고 코드 리팩토링을 통해 97줄 -> 27줄로 [축소](https://github.com/BreedingMe/CoCoFrontend/pull/163/files)에 성공해서 뿌듯했습니다.<br><br>
+
+</details>
+
+<details>
+<summary> 모집현황 필터 (Front-End)</summary>
+
+```javascript
+window.initializeHome = () => {
+    let check = localStorage.getItem('check');
+    $('#recruitmentStateCheckbox').prop('checked', JSON.parse(check));
+    if ($('input:checkbox[id="recruitmentStateCheckbox"]').is(':checked')) {
+        getPosts();
+    }
+    else {
+        getRecrutingPosts();
+    }
+};
+
+window.recruitmentStateCheckbox = () => {
+    localStorage.setItem('check', $('#recruitmentStateCheckbox').is(':checked'));
+
+    if ($('input:checkbox[id="recruitmentStateCheckbox"]').is(':checked')) {
+        getPosts();
+    }
+    else {
+        getRecrutingPosts();
+    }
+};
+```
+
+### 기억에 남는 이유
+
+- 기존에는 홈화면에서 모든 게시글을 불러왔는데, 고객피드백을 반영하여 기본적으로는 `모집중`인 게시글만 보이게하고 '모집완료된 프로젝트 포함' 필터에 체크하면 `모집중 & 모집완료` 게시물을 모두 볼 수 있도록 기능을 구현하였습니다.
+    - `localStorage`를 이용하여 게시글을 들어갔다가 뒤로가기해도 필터링 상태가 유지되도록 만드는 부분에서 많은 어려움을 겪었고, 해결했을 때 뿌듯함을 느꼈기 때문입니다.<br>
 </details>
 <br>
 <br>
@@ -125,7 +173,6 @@ https://github.com/serijang/CoCoBackend/blob/23dbd833cc967b3ae52e753ef1f0eb91f23
                 HttpStatus.valueOf(StatusCode.SUCCESS)
         );
     }
-
 ```
 
 <br>
@@ -181,7 +228,107 @@ https://github.com/serijang/CoCoBackend/blob/23dbd833cc967b3ae52e753ef1f0eb91f23
 </details>
 <br><br>
 
-### 7-2 @MappedSuperClass<br>
+### 7-2 쪽지 상세읽기 구분
+
+#### 문제 원인<br>
+
+- 쪽지 상세읽기(Get)를 하면 읽음 상태가 `읽지않음(false)` → `읽음(true)` 으로 [변경](https://github.com/BreedingMe/CoCoBackend/blob/77dcb6b55af6b6b02587e03919dfde0bc77a3f49/src/main/java/com/igocst/coco/service/MessageService.java#L91)되는데, 보낸 쪽지함에서 쪽지를 보낸 유저가 읽을 때에도 읽음 상태가 변경되는 문제가 있었습니다.
+> 해결 방법
+- 보낸 쪽지 리스트에서 자신이 보낸 쪽지를 읽었을 때는 읽음상태가 바뀌지 않도록 구현하기 위해서 백엔드에서 기존의 코드 변경을 최소화하고, 프론트에서 쪽지 상세읽기 방법을 3개로 구분하여 구현해서 해결했습니다.
+1. 다른 유저가 보낸 쪽지를 확인할 때 답장보내기 버튼이 '있는' 모달로 연결 : [ajax - GET 메소드 이용](https://github.com/BreedingMe/CoCoFrontend/blob/70fdc01ce1a1f6b697ec6baec24b89f91c589808/src/js/message.js#L270-L306)
+2. 받은 쪽지리스트에서 본인이 보낸 쪽지를 확인할 때 답장보내기 버튼이 '없는' 모달로 연결  : ajax - GET 메소드 이용
+3. 보낸 쪽지리스트에서 본인이 보낸 쪽지를 확인할 때는 읽음상태를 변경하는 메소드가 있는 GET 메소드를 거치지 않기 위해서, [보낸 쪽지 리스트](https://github.com/BreedingMe/CoCoBackend/blob/77dcb6b55af6b6b02587e03919dfde0bc77a3f49/src/main/java/com/igocst/coco/service/MessageService.java#L131-L150)를 받아오는 GET 메소드에서 Dto로 모달에 보여져야하는 정보(content)를 추가적으로 받아온 후, 위의 2번 모달의 content의 id값에 직접적으로 연결해서 읽음상태가 변경되지 않으면서 정보가 보여지도록 구현했습니다.
+
+<details>
+<summary> 기존 방식 </summary>
+<br>
+
+| message.js
+
+```javascript
+// 쪽지 상세 읽기
+function getMessage(messageId) {
+    let token = Cookies.get('token');
+    $.ajax({
+        type: 'GET',
+        url: process.env.BACKEND_HOST + '/message/' + messageId,
+        beforeSend: function (xhr) {
+            xhr.setRequestHeader('Content-type', 'application/json');
+            xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+        },
+        data: {},
+        success: function (response) {
+            let message = response;
+            let title = message['title'];
+            let content = message['content'];
+            $('#title').html(title);
+            $('#content').html(content);
+            window.openDetailMessageModal();
+        }
+    });
+}
+```
+</details>
+
+<details>
+<summary> 해결 방법 </summary>
+<br>
+| message.js
+
+```javascript
+// 보낸 쪽지 리스트 불러오기
+function getCreateMessageList() {
+        ・・・
+$('#message-list').append(messagesHTML);  
+$('#title-send').text(title); 
+$('#content-send').text(content);  // 모달의 id값(#content-send)에 Dto로 추가적으로 받아온 정보를 넘겨줌
+        ・・・
+}
+```
+
+```javascript
+// 쪽지 상세 읽기
+function getMessage(messageId) {
+    let token = Cookies.get('token');
+
+    $.ajax({
+        type: 'GET',
+        url: process.env.BACKEND_HOST + '/message/' + messageId,
+
+        beforeSend: function (xhr) {
+            xhr.setRequestHeader('Content-type', 'application/json');
+            xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+        },
+        data: {},
+
+        success: function (response) {
+            let message = response;
+            localStorage.setItem('message', JSON.stringify(message));
+
+            let member = message['member'];
+            let sender = message['sender'];
+            let title = message['title'];
+            let content = message['content'];
+
+            if (member == sender) {
+                window.openSendDetailMessageModal();
+                $('#title-send').html(title);
+                $('#content-send').html(content);
+            }
+            else {
+                window.openReadDetailMessageModal();
+                $('#title-read').html(title);
+                $('#content-read').html(content);
+                $('input[id=receiver_createMessage]').val(sender);
+            }
+        }
+    });
+}
+```
+</details>
+<br><br>
+
+### 7-3 @MappedSuperClass<br>
 
 #### 문제 원인<br>
 
@@ -256,8 +403,8 @@ public abstract class Timestamped {
 ```
 </details>
 
-<br>
-<br>
+<br><br>
+
 
 ## 8. 그외 트러블 슈팅
 
