@@ -232,101 +232,14 @@ window.recruitmentStateCheckbox = () => {
 
 #### 문제 원인<br>
 
-- 쪽지 상세읽기(Get)를 하면 읽음 상태가 `읽지않음(false)` → `읽음(true)` 으로 [변경](https://github.com/BreedingMe/CoCoBackend/blob/77dcb6b55af6b6b02587e03919dfde0bc77a3f49/src/main/java/com/igocst/coco/service/MessageService.java#L91)되는데, 보낸 쪽지함에서 쪽지를 보낸 유저가 읽을 때에도 읽음 상태가 변경되는 문제가 있었습니다.
+- 쪽지 상세읽기(Get)를 하면 읽음 상태가 `읽지않음(false)` → `읽음(true)` 으로 [변경](https://github.com/BreedingMe/CoCoBackend/blob/77dcb6b55af6b6b02587e03919dfde0bc77a3f49/src/main/java/com/igocst/coco/service/MessageService.java#L91)되는데, 보낸 쪽지함에서 본인이 보낸 쪽지를 읽을 때에도 상대방 쪽지의 읽음 상태가 변경되는 문제가 있었습니다.
 > 해결 방법
-- 보낸 쪽지 리스트에서 자신이 보낸 쪽지를 읽었을 때는 읽음상태가 바뀌지 않도록 구현하기 위해서 백엔드에서 기존의 코드 변경을 최소화하고, 프론트에서 쪽지 상세읽기 방법을 3개로 구분하여 구현해서 해결했습니다.
-1. 다른 유저가 보낸 쪽지를 확인할 때 답장보내기 버튼이 '있는' 모달로 연결 : [ajax - GET 메소드 이용](https://github.com/BreedingMe/CoCoFrontend/blob/70fdc01ce1a1f6b697ec6baec24b89f91c589808/src/js/message.js#L270-L306)
-2. 받은 쪽지리스트에서 본인이 보낸 쪽지를 확인할 때 답장보내기 버튼이 '없는' 모달로 연결  : ajax - GET 메소드 이용
-3. 보낸 쪽지리스트에서 본인이 보낸 쪽지를 확인할 때는 읽음상태를 변경하는 메소드가 있는 GET 메소드를 거치지 않기 위해서, [보낸 쪽지 리스트](https://github.com/BreedingMe/CoCoBackend/blob/77dcb6b55af6b6b02587e03919dfde0bc77a3f49/src/main/java/com/igocst/coco/service/MessageService.java#L131-L150)를 받아오는 GET 메소드에서 Dto로 모달에 보여져야하는 정보(content)를 추가적으로 받아온 후, 위의 2번 모달의 content의 id값에 직접적으로 연결해서 읽음상태가 변경되지 않으면서 정보가 보여지도록 구현했습니다.
+- 쪽지 상세읽기를 할 때, 쪽지의 `sender`와 `receiver`와 동일하다면 `읽지않음(false)` → `읽음(true)`가 변하지 않도록 분기처리
+- `sender == receiver` 일 때 읽음상태가 변하지 않는데, 받은 쪽지함에서 본인이 보낸 쪽지를 확인해도 읽음상태가 변하지않는 이상현상을 예방하기 위해 아예 본인에게 쪽지를 보낼 수 없도록 제한
+- 프론트에서도 보낸 쪽지는 답장보내기 버튼이 '없는' 모달 & 받은 쪽지를 확인할 때는 답장보내기 버튼이 '있는' 모달이 뜨도록 구분하여 보여질 수 있도록 분기처리<br>
 
-<details>
-<summary> 기존 방식 </summary>
-<br>
+[🔗 MessageService.java 변경 사항](https://github.com/BreedingMe/CoCoBackend/commit/56ab117e985c12b889578f9ea993dfa792e3497c)   /   [🔎 더 자세한 쪽지 상세읽기 기능의 변화](https://velog.io/@serringg/%EC%AA%BD%EC%A7%80-%EC%83%81%EC%84%B8%EC%9D%BD%EA%B8%B0-%EA%B8%B0%EB%8A%A5%EC%9D%98-%EB%B3%80%EC%B2%9C%EC%82%AC)<br><br><br>
 
-| message.js
-
-```javascript
-// 쪽지 상세 읽기
-function getMessage(messageId) {
-    let token = Cookies.get('token');
-    $.ajax({
-        type: 'GET',
-        url: process.env.BACKEND_HOST + '/message/' + messageId,
-        beforeSend: function (xhr) {
-            xhr.setRequestHeader('Content-type', 'application/json');
-            xhr.setRequestHeader('Authorization', 'Bearer ' + token);
-        },
-        data: {},
-        success: function (response) {
-            let message = response;
-            let title = message['title'];
-            let content = message['content'];
-            $('#title').html(title);
-            $('#content').html(content);
-            window.openDetailMessageModal();
-        }
-    });
-}
-```
-</details>
-
-<details>
-<summary> 해결 방법 </summary>
-<br>
-| message.js
-
-```javascript
-// 보낸 쪽지 리스트 불러오기
-function getCreateMessageList() {
-        ・・・
-$('#message-list').append(messagesHTML);  
-$('#title-send').text(title); 
-$('#content-send').text(content);  // 모달의 id값(#content-send)에 Dto로 추가적으로 받아온 정보를 넘겨줌
-        ・・・
-}
-```
-
-```javascript
-// 쪽지 상세 읽기
-function getMessage(messageId) {
-    let token = Cookies.get('token');
-
-    $.ajax({
-        type: 'GET',
-        url: process.env.BACKEND_HOST + '/message/' + messageId,
-
-        beforeSend: function (xhr) {
-            xhr.setRequestHeader('Content-type', 'application/json');
-            xhr.setRequestHeader('Authorization', 'Bearer ' + token);
-        },
-        data: {},
-
-        success: function (response) {
-            let message = response;
-            localStorage.setItem('message', JSON.stringify(message));
-
-            let member = message['member'];
-            let sender = message['sender'];
-            let title = message['title'];
-            let content = message['content'];
-
-            if (member == sender) {
-                window.openSendDetailMessageModal();
-                $('#title-send').html(title);
-                $('#content-send').html(content);
-            }
-            else {
-                window.openReadDetailMessageModal();
-                $('#title-read').html(title);
-                $('#content-read').html(content);
-                $('input[id=receiver_createMessage]').val(sender);
-            }
-        }
-    });
-}
-```
-</details>
-<br><br>
 
 ### 7-3 @MappedSuperClass<br>
 
